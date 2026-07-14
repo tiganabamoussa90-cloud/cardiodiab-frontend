@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background-color: theme("colors.pulse.100");
+  }
+  :focus-visible {
+    outline: 2px solid theme("colors.pulse.500");
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  .label-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-wider text-ink-faint;
+  }
+}
+
+/* --- OPTIMISATIONS D'IMPRESSION (PAPIER / PDF) --- */
+@media print {
+  /* Masque les éléments inutiles sur le document physique */
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Supprime les marges système par défaut pour faire disparaître l'URL, la date et le titre de la page */
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact; /* Force les navigateurs Webkit à imprimer les couleurs d'arrière-plan légères */
+    print-color-adjust: exact;
+  }
+
+  /* 
+    Règles de mise en page pour éviter les mauvaises coupures sur un rapport de plusieurs pages :
+    - .print-avoid-break : à appliquer sur un graphique (comme ton BioRiskGauge) ou une section de données pour ne pas la couper en deux.
+    - .print-force-page : à appliquer sur une section que tu souhaites impérativement démarrer sur une nouvelle feuille.
+  */
+  .print-avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-force-page {
+    page-break-before: always;
+    break-before: page;
+  }
+}
+
+/* --- GRAPHISMES & ANIMATIONS --- */
+@media (prefers-reduced-motion: no-preference) {
+  .mesh-blob {
+    animation: meshDrift 20s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes meshDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(24px, -18px, 0) scale(1.06);
+  }
+}
