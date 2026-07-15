@@ -17,6 +17,19 @@ npm run dev
 
 Le backend FastAPI doit autoriser `http://localhost:5173` en CORS (déjà fait dans
 mon `main.py`).
+Le backend FastAPI doit autoriser http://localhost:5173 en CORS (déjà fait dans
+
+Démarrage (via l'API déployée)
+
+En production, l'URL du backend n'est plus localhost mais celle du déploiement
+Railway du backend. Le client Axios lit cette valeur depuis une variable
+d'environnement Vite :
+
+# .env.production
+VITE_API_URL=https://cardiodiab-backend-xxxx.vercel.app
+
+Le même mécanisme est utilisé en local dans .env (pointant vers
+http://127.0.0.1:8000) pour ne jamais coder l'URL en dur dans le code source.
 
 ## Arborescence
 
@@ -25,18 +38,20 @@ src/
   components/
     ui/         Button, Card, Badge, Field (Input/Select/Textarea), Modal, Table, States, StatTile
     layout/     AppShell, Sidebar (nav par rôle), Topbar
-    charts/     BioRiskGauge, ShapInfluenceChart, ScoreTimelineChart, ImcTrendCard
-    ReportDocument.jsx   document imprimable partagé (médecin, patient)
+    charts/     BioRiskGauge, ShapInfluenceChart, ScoreTimelineChart, ImcTrendCard (ImcTrendCard + ScoreTrendCard)
+    ReportDocument.jsx   document imprimable partagé (médecin, patient), branché sur
+                         report.specialite / report.type_consultation renvoyés par l'API
   contexts/     AuthContext (JWT + rôle), ToastContext
   hooks/        useAuth, useToast, useApi (fetch déclaratif), useAction (mutations)
   routes/       ProtectedRoute (garde l'auth + restreint par rôle)
-  services/     axiosClient (intercepteur JWT + erreurs), authService, medecinService,
-                patientService, adminService — un module par domaine du backend
+  services/     axiosClient (baseURL = VITE_API_URL, intercepteur JWT + erreurs),
+                authService, medecinService, patientService, adminService, agentService
   pages/
-    auth/       LoginPage, RegisterMedecinPage, FinaliserPatientPage
+    auth/       LoginPage, RegisterMedecinPage, RegisterAgentPage
     medecin/    MedecinOverviewPage, PatientsListPage, PatientConsultationsPage,
                 NewConsultationPage, ConsultationDetailPage, ConsultationRapportPage
-    patient/    PatientDashboardPage, PatientReportPage
+    patient/    PatientDashboardPage (onglets Cardiologie/Diabétologie), PatientReportPage
+    agent/      AgentOverviewPage (création de dossier patient)
     admin/      AdminOverviewPage, AuditLogsPage
   utils/        roles.js (mapping rôle → navigation/flux IA), formatters.js
 ```
@@ -44,21 +59,25 @@ src/
 ## Flux applicatif
 
 1. **Connexion** (`/login`) → `POST /auth/login` → badge JWT stocké, redirection
-   automatique vers `/medecin`, `/patient` ou `/admin` selon le rôle renvoyé.
-2. **Médecin** : `Patients` → créer ou lier un dossier → `Consultations` d'un
+   automatique vers `/medecin`, `/patient`, `/agent` ou `/admin` selon le rôle renvoyé.
+2. **Agent d'admission** : crée un dossier patient (`POST /agent/creer-patient`) —
+    l'IPP et le mot de passe temporaire du patient sont générés côté serveur
+    et affichés une seule fois à l'écran pour être transmis au patient.  
+3. **Médecin** : `Patients` → créer ou lier un dossier → `Consultations` d'un
    patient → `Nouvelle consultation` (formulaire clinique complet) → la
    prédiction renvoyée affiche immédiatement le `BioRiskGauge`, puis vous
    accédez au détail SHAP (`ConsultationDetailPage`) pour l'explicabilité et
    la rédaction des recommandations.
-3. **Patient** : tableau de bord unique avec timeline des scores, évolution de
+4. **Patient** : tableau de bord unique avec timeline des scores, évolution de
    l'IMC, habitudes de vie et dernières recommandations du médecin.
-4. **Admin** : validation/rejet des inscriptions de médecins, suspension par
+5. **Admin** : validation/rejet des inscriptions de médecins, suspension par
    identifiant, et journal d'audit filtrable.
 
 Le rôle retourné par `/auth/login` pour un médecin est en réalité sa
-**spécialité** (`GENERALISTE` / `CARDIOLOGUE` / `DIABETOLOGUE`). C'est cette
+**spécialité** ( `CARDIOLOGUE` / `DIABETOLOGUE`). C'est cette
 valeur qui détermine automatiquement le `flux_prediction` envoyé lors d'une
 consultation, et quelles sections du formulaire sont mises en avant.
+
 
 ## Points backend à vérifier avant mise en production
 
