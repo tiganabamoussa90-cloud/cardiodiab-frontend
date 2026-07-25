@@ -125,3 +125,5 @@ pour limiter la fréquence des démarrages à froid.
 - Impression : les pages de rapport (`ConsultationRapportPage`,
   `PatientReportPage`) masquent la navigation via la classe `.no-print` et
   s'impriment proprement avec `window.print()`.
+
+<img width="1002" height="1342" alt="image" src="https://github.com/user-attachments/assets/63995460-f9d1-46b6-bf2c-807b3b8ac28c" />
