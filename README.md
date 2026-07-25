@@ -21,39 +21,41 @@ Le backend FastAPI doit autoriser `http://localhost:5173` en CORS (déjà fait d
 ## Démarrage (via l'API déployée)
 
 En production, l'URL du backend n'est plus `localhost` mais celle du déploiement
-**Railway** du backend. Le client Axios lit cette valeur depuis une variable
+Vercel du backend. Le client Axios lit cette valeur depuis une variable
 d'environnement Vite :
-.env.production
 
-VITE_API_URL=https://cardiodiab-backend-production.up.railway.app
-
+```
+# .env.production
+VITE_API_URL=https://cardiodiab-backend-xxxx.vercel.app
+```
 
 Le même mécanisme est utilisé en local dans `.env` (pointant vers
 `http://127.0.0.1:8000`) pour ne jamais coder l'URL en dur dans le code source.
 
 ## Arborescence
 
+```
 src/
-components/
-ui/ Button, Card, Badge, Field (Input/Select/Textarea), Modal, Table, States, StatTile
-layout/ AppShell, Sidebar (nav par rôle), Topbar
-charts/ BioRiskGauge, ShapInfluenceChart, ScoreTimelineChart, ImcTrendCard (ImcTrendCard + ScoreTrendCard)
-ReportDocument.jsx document imprimable partagé (médecin, patient), branché sur
-report.specialite / report.type_consultation renvoyés par l'API
-contexts/ AuthContext (JWT + rôle), ToastContext
-hooks/ useAuth, useToast, useApi (fetch déclaratif), useAction (mutations)
-routes/ ProtectedRoute (garde l'auth + restreint par rôle)
-services/ axiosClient (baseURL = VITE_API_URL, intercepteur JWT + erreurs),
-authService, medecinService, patientService, adminService, agentService
-pages/
-auth/ LoginPage, RegisterMedecinPage, RegisterAgentPage
-medecin/ MedecinOverviewPage, PatientsListPage, PatientConsultationsPage,
-NewConsultationPage, ConsultationDetailPage, ConsultationRapportPage
-patient/ PatientDashboardPage (onglets Cardiologie/Diabétologie), PatientReportPage
-agent/ AgentOverviewPage (création de dossier patient)
-admin/ AdminOverviewPage, AuditLogsPage
-utils/ roles.js (mapping rôle → navigation/flux IA), formatters.js
-
+  components/
+    ui/         Button, Card, Badge, Field (Input/Select/Textarea), Modal, Table, States, StatTile
+    layout/     AppShell, Sidebar (nav par rôle), Topbar
+    charts/     BioRiskGauge, ShapInfluenceChart, ScoreTimelineChart, ImcTrendCard (ImcTrendCard + ScoreTrendCard)
+    ReportDocument.jsx   document imprimable partagé (médecin, patient), branché sur
+                         report.specialite / report.type_consultation renvoyés par l'API
+  contexts/     AuthContext (JWT + rôle), ToastContext
+  hooks/        useAuth, useToast, useApi (fetch déclaratif), useAction (mutations)
+  routes/       ProtectedRoute (garde l'auth + restreint par rôle)
+  services/     axiosClient (baseURL = VITE_API_URL, intercepteur JWT + erreurs),
+                authService, medecinService, patientService, adminService, agentService
+  pages/
+    auth/       LoginPage, RegisterMedecinPage, RegisterAgentPage
+    medecin/    MedecinOverviewPage, PatientsListPage, PatientConsultationsPage,
+                NewConsultationPage, ConsultationDetailPage, ConsultationRapportPage
+    patient/    PatientDashboardPage (onglets Cardiologie/Diabétologie), PatientReportPage
+    agent/      AgentOverviewPage (création de dossier patient)
+    admin/      AdminOverviewPage, AuditLogsPage
+  utils/        roles.js (mapping rôle → navigation/flux IA), formatters.js
+```
 
 ## Flux applicatif
 
@@ -68,7 +70,7 @@ utils/ roles.js (mapping rôle → navigation/flux IA), formatters.js
    accédez au détail SHAP (`ConsultationDetailPage`) pour l'explicabilité et
    la rédaction des recommandations.
 4. **Patient** : tableau de bord avec deux onglets (Cardiologie / Diabétologie),
-   chacun affichant sa propre timeline de scores et sa propre évolution
+   chacun affichant sa propre timeline de scores, sa propre évolution
    (actuel/précédent), l'IMC et les habitudes de vie restant communs aux deux
    onglets.
 5. **Admin** : validation/rejet des inscriptions de médecins et d'agents,
@@ -77,33 +79,42 @@ utils/ roles.js (mapping rôle → navigation/flux IA), formatters.js
 Le rôle retourné par `/auth/login` pour un médecin est en réalité sa
 **spécialité** (`CARDIOLOGUE` ou `DIABETOLOGUE` — seules valeurs valides de
 l'ENUM `medecin.specialite`, il n'existe pas de rôle `GENERALISTE`). Cette même
-valeur est utilisée pour `type_consultation` en base, et détermine le
-`flux_prediction` envoyé lors d'une consultation.
+valeur est désormais utilisée telle quelle pour `type_consultation` en base
+(harmonisé pour éviter la confusion avec l'ancien ENUM `CARDIOLOGIE`/`DIABETOLOGIE`),
+et détermine le `flux_prediction` envoyé lors d'une consultation.
 
 ## Déploiement
 
 | Composant | Hébergement | Notes |
 |---|---|---|
 | Frontend (ce dépôt) | **Vercel** | Déploiement automatique à chaque `push` sur `main` |
-| Backend (FastAPI) | **Railway** (conteneur Python persistant, adapté aux dépendances lourdes scikit-learn/lightgbm/shap/pandas) | Variables : `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`, `SECRET_KEY` |
-| Base de données MySQL | **Clever Cloud** (plan DEV gratuit) | Schéma + données importés via `mysqldump` |
+| Backend (FastAPI) | **Vercel** (fonction Python, Large Functions activées via `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` pour dépasser la limite standard de 500 Mo à cause de `scikit-learn`/`lightgbm`/`shap`/`pandas`) | Variables d'environnement : `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`, `SECRET_KEY` |
+| Base de données MySQL | **Clever Cloud** (plan DEV gratuit) | Schéma + données importés depuis le dump local via `mysqldump` |
+
+⚠️ Backend en fonction serverless : chaque connexion MySQL est rouverte par
+requête (pas de pool persistant), et les modèles `.pkl` sont rechargés au
+"cold start". Un ping périodique (ex. via cron-job.org) peut être mis en place
+pour limiter la fréquence des démarrages à froid.
 
 ## Points backend encore en suspens (hors périmètre de ce dépôt frontend)
 
-- `enregistrer_audit()` utilise la colonne `ip_adress` (faute de frappe) —
-  à harmoniser avec le schéma SQL.
+- `enregistrer_audit()` utilise la colonne `ip_adress` (faute de frappe) alors
+  que le schéma SQL déclare `ip_address` — à harmoniser.
 - `PatientCreateRequest` déclare `mot_de_passe` et `ipp` comme champs requis
-  côté Pydantic, alors qu'ils sont générés côté serveur dans
-  `creer_dossier_patient` — l'INSERT utilise actuellement `data.ipp` au lieu
-  de la variable `ipp` réellement générée, à corriger.
+  côté Pydantic, alors qu'ils sont en réalité générés côté serveur et ignorés
+  du formulaire agent — le schéma doit être aligné (champs optionnels ou
+  supprimés).
 - `GET /admin/medecins/en-attente` contient une virgule manquante dans le
-  `SELECT` (`m.code_inpe u.email`) — erreur de syntaxe SQL.
-- `GET /admin/agents/en-attente` sélectionne des colonnes inexistantes sur
-  `agent_admission` (`nom`/`prenom` au lieu de `nom_agent`/`prenom_agent`,
-  pas de colonne `specialite` pour les agents).
-- Deux fonctions Python homonymes `valider_compte_medecin` — à renommer.
-- `ScoreTrendCard` (dans `ImcTrendCard.jsx`) doit recevoir un objet
-  `{score_actuel, score_prec, evolution}` plutôt qu'un simple nombre.
+  `SELECT` (`m.code_inpe u.email`) — erreur de syntaxe SQL à corriger.
+- `GET /admin/agents/en-attente` sélectionne des colonnes qui n'existent pas
+  sur `agent_admission` (`nom`/`prenom` au lieu de `nom_agent`/`prenom_agent`,
+  pas de colonne `specialite` sur les agents).
+- Deux fonctions Python homonymes `valider_compte_medecin` (une pour les
+  médecins, une pour les agents) — à renommer pour éviter toute ambiguïté.
+- `ScoreTrendCard` (dans `ImcTrendCard.jsx`) doit être adapté pour recevoir un
+  objet `{score_actuel, score_prec, evolution}` (nouveau format de
+  `/patient/dashboard/Indicateurs`, scores cardio/diabète désormais séparés)
+  plutôt qu'un simple nombre.
 
 ## Design
 
