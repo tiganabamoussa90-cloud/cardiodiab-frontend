@@ -127,3 +127,6 @@ pour limiter la fréquence des démarrages à froid.
   s'impriment proprement avec `window.print()`.
 
 <img width="1002" height="1342" alt="image" src="https://github.com/user-attachments/assets/63995460-f9d1-46b6-bf2c-807b3b8ac28c" />
+
+<img width="1205" height="596" alt="image" src="https://github.com/user-attachments/assets/3ff890dc-6105-468c-a0c6-6fd5af9eb75e" />
+
